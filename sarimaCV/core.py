@@ -1,61 +1,7 @@
-import numpy as np
-import pandas as pd
-import warnings
 import os
 import time
 import concurrent.futures
-from math import sqrt
-from statsmodels.tsa.statespace.sarimax import SARIMAX
-from statsmodels.tools.sm_exceptions import ConvergenceWarning
-
-
-def eval_fold(train, test, p, d, q, P, D, Q, s, recursive=False):
-    '''Evaluate a single fold of the cross-validation process'''
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', UserWarning)
-        warnings.simplefilter('ignore', ConvergenceWarning)
-
-        if recursive:
-            # Recursive forecasting method
-            forecasts = []
-            for _ in range(len(test)):
-                model = SARIMAX(train, order=(p, d, q),
-                                seasonal_order=(P, D, Q, s))
-                forecast = model.fit(disp=0).forecast(steps=1)
-                forecasts.append(forecast[0])
-                train = np.append(train, forecast[0])
-        else:
-            # Standard forecasting method
-            model = SARIMAX(train, order=(p, d, q),
-                            seasonal_order=(P, D, Q, s))
-            forecasts = model.fit(disp=0).forecast(steps=len(test))
-
-        se = (test - np.array(forecasts))**2
-        return np.sum(se)
-
-
-def evaluate_params(data, p, d, q, P, D, Q, s, n_folds, recursive, forecast_size, initial_train_size):
-    '''Evaluate a single parameter combination'''
-    total_rmse = 0
-    for fold in range(n_folds):
-        train_end = initial_train_size + fold * forecast_size
-        test_end = train_end + forecast_size
-        train_data = data[:train_end]
-        test_data = data[train_end:test_end]
-        se = eval_fold(train_data, test_data, p, d, q, P, D, Q, s, recursive)
-        total_rmse += sqrt(se / forecast_size) / n_folds
-
-    return (p, d, q, P, D, Q), total_rmse
-
-
-def format_results_to_table(results_dict):
-    '''Format results to a pandas DataFrame'''
-    df = pd.DataFrame.from_dict(
-        results_dict, orient='index', columns=['AVG RMSE'])
-    df = df.reset_index()
-    df.columns = ['Order', 'AVG RMSE']
-    df = df.sort_values(by='AVG RMSE', ascending=True)
-    return df
+from .utils import *
 
 
 def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1, s=12, n_folds=5, recursive=False, forecast_size=3, n_cores=-1, max_runtime=None):
@@ -117,7 +63,7 @@ def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1,
             print(e)
             for future in future_to_params:
                 future.cancel()
-            executor.shutdown(wait=True)
+            executor.shutdown(wait=False)
             return format_results_to_table(results_dict)
 
     return format_results_to_table(results_dict)
