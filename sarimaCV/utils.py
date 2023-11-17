@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import warnings
-import random
 from math import sqrt
 import time
 from statsmodels.tsa.statespace.sarimax import SARIMAX
