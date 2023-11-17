@@ -1,6 +1,5 @@
 import os
-import time
-import concurrent.futures
+from joblib import Parallel, delayed
 from .utils import *
 
 
@@ -38,32 +37,31 @@ def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1,
     '''
     if n_cores == -1:
         n_cores = os.cpu_count() or 4
-    results_dict = {}
+
     initial_train_size = len(data) - n_folds * forecast_size
-    start_time = time.time()
+    param_combinations = [
+        (p, d, q, P, D, Q)
+        for p in range(max_p + 1)
+        for d in range(max_d + 1)
+        for q in range(max_q + 1)
+        for P in range(max_P + 1)
+        for D in range(max_D + 1)
+        for Q in range(max_Q + 1)
+    ]
 
-    param_combinations = [(p, d, q, P, D, Q) for p in range(max_p + 1) for d in range(max_d + 1)
-                          for q in range(max_q + 1) for P in range(max_P + 1)
-                          for D in range(max_D + 1) for Q in range(max_Q + 1)]
+    sample_size = min(3, len(param_combinations))
+    if max_runtime:
+        average_time = estimate_time_per_combination(
+            data, sample_size, param_combinations, n_folds, recursive, forecast_size, initial_train_size, s)
+    max_combinations = int(
+        max_runtime / average_time) if max_runtime else len(param_combinations)
+    selected_combinations = param_combinations[:max_combinations]
+    results = Parallel(n_jobs=n_cores)(
+        delayed(evaluate_params)(
+            data, *comb, s=s, n_folds=n_folds, recursive=recursive, forecast_size=forecast_size, initial_train_size=initial_train_size
+        ) for comb in selected_combinations
+    )
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=n_cores) as executor:
-        future_to_params = {executor.submit(evaluate_params, data, p, d, q, P, D, Q, s, n_folds, recursive, forecast_size, initial_train_size): (p, d, q, P, D, Q)
-                            for p, d, q, P, D, Q in param_combinations}
-
-        try:
-            for future in concurrent.futures.as_completed(future_to_params):
-                if max_runtime and (time.time() - start_time) > max_runtime:
-                    raise TimeoutError(
-                        "Max runtime exceeded. Cancelling remaining tasks can take up to 1-2 mins.")
-
-                params = future_to_params[future]
-                _, rmse_value = future.result()
-                results_dict[params] = rmse_value
-        except TimeoutError as e:
-            print(e)
-            for future in future_to_params:
-                future.cancel()
-            executor.shutdown(wait=False)
-            return format_results_to_table(results_dict)
+    results_dict = {params: rmse for params, rmse in results}
 
     return format_results_to_table(results_dict)

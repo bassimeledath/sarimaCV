@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import warnings
+import random
 from math import sqrt
+import time
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
@@ -43,6 +45,18 @@ def evaluate_params(data, p, d, q, P, D, Q, s, n_folds, recursive, forecast_size
         avg_rmse += sqrt(sse / forecast_size) / n_folds
 
     return (p, d, q, P, D, Q), avg_rmse
+
+
+def estimate_time_per_combination(data, sample_size, param_combinations, n_folds, recursive, forecast_size, initial_train_size, s):
+    '''Estimate the average time per parameter combination'''
+    total_time = 0
+    for params in param_combinations[:sample_size]:
+        start_time = time.time()
+        evaluate_params(data, *params, s=s, n_folds=n_folds, recursive=recursive,
+                        forecast_size=forecast_size, initial_train_size=initial_train_size)
+        total_time += time.time() - start_time
+    average_time = total_time / sample_size
+    return average_time
 
 
 def format_results_to_table(results_dict):
