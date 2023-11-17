@@ -58,11 +58,12 @@ def estimate_time_per_combination(data, sample_size, param_combinations, n_folds
     return average_time
 
 
-def format_results_to_table(results_dict):
-    '''Format results to a pandas DataFrame'''
-    df = pd.DataFrame.from_dict(
-        results_dict, orient='index', columns=['AVG RMSE'])
-    df = df.reset_index()
-    df.columns = ['Order', 'AVG RMSE']
-    df = df.sort_values(by='AVG RMSE', ascending=True)
+def format_results_to_table(results_dict, s):
+    '''Format results to a pandas DataFrame with a specific string format for orders'''
+    formatted_rows = []
+    for (p, d, q, P, D, Q), rmse in results_dict.items():
+        order_str = f"ARIMA[({p}, {d}, {q}), ({P}, {D}, {Q}, {s})]"
+        formatted_rows.append([order_str, rmse])
+    df = pd.DataFrame(formatted_rows, columns=['Order', 'RMSE'])
+    df = df.sort_values(by='RMSE', ascending=True)
     return df

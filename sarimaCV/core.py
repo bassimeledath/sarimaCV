@@ -3,26 +3,16 @@ from joblib import Parallel, delayed
 from .utils import *
 
 
-def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1, s=12, n_folds=5, recursive=False, forecast_size=3, n_cores=-1, max_runtime=None):
+def cross_validation(data, p_values, d_values, q_values, P_values, D_values, Q_values, s, n_folds=5, recursive=False, forecast_size=3, n_cores=-1, max_runtime=None):
     '''Perform SARIMA cross-validation on a time series
 
     Parameters
     ----------
     data : array_like
         The time series to be cross-validated
-    max_p : int, optional
-        The maximum value of the AR parameter
-    max_d : int, optional
-        The maximum value of the I parameter
-    max_q : int, optional
-        The maximum value of the MA parameter
-    max_P : int, optional
-        The maximum value of the seasonal AR parameter
-    max_D : int, optional
-        The maximum value of the seasonal I parameter
-    max_Q : int, optional
-        The maximum value of the seasonal MA parameter
-    s : int, optional
+    p_values, d_values, q_values, P_values, D_values, Q_values : list
+        Lists of integers for the AR(I)MA and seasonal AR(I)MA parameters
+    s : int
         The seasonal period
     n_folds : int, optional
         The number of folds to be used in the cross-validation process
@@ -41,12 +31,12 @@ def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1,
     initial_train_size = len(data) - n_folds * forecast_size
     param_combinations = [
         (p, d, q, P, D, Q)
-        for p in range(max_p + 1)
-        for d in range(max_d + 1)
-        for q in range(max_q + 1)
-        for P in range(max_P + 1)
-        for D in range(max_D + 1)
-        for Q in range(max_Q + 1)
+        for p in p_values
+        for d in d_values
+        for q in q_values
+        for P in P_values
+        for D in D_values
+        for Q in Q_values
     ]
 
     sample_size = min(3, len(param_combinations))
@@ -64,4 +54,4 @@ def cross_validation(data, max_p=3, max_d=1, max_q=3, max_P=1, max_D=1, max_Q=1,
 
     results_dict = {params: rmse for params, rmse in results}
 
-    return format_results_to_table(results_dict)
+    return format_results_to_table(results_dict, s)
