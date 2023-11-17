@@ -13,7 +13,6 @@ setup(
     install_requires=[
         'numpy',
         'pandas',
-        'statsmodels',
-        'concurrent.futures'
+        'statsmodels'
     ],
 )
