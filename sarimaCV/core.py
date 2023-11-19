@@ -1,4 +1,6 @@
 import os
+from collections import namedtuple
+from functools import wraps
 from joblib import Parallel, delayed
 from .utils import *
 
@@ -55,3 +57,69 @@ def cross_validation(data, p_values, d_values, q_values, P_values, D_values, Q_v
     results_dict = {params: rmse for params, rmse in results}
 
     return format_results_to_table(results_dict, s)
+
+def parallelize(n_folds, pred_len):
+    def decorator(func: callable):
+        @wraps(func)
+        def wrapper(**kwargs):
+            required = ['data', 'p', 'd', 'q']
+            if not all([k in kwargs for k in required]):
+                raise ValueError('Missing required keyword argument(s)')
+
+            seasonal_params = ['P', 'D', 'Q', 's']
+            if any([k in kwargs for k in seasonal_params]):
+                if not all([k in kwargs for k in seasonal_params]):
+                    raise ValueError('Missing required keyword argument(s)')
+
+
+            if 's' in kwargs:
+                comb = namedtuple('comb', ['p', 'd', 'q', 'P', 'D', 'Q'])
+                param_combinations = [
+                    comb(p, d, q, P, D, Q)
+                    for p in kwargs.get('p', [])
+                    for d in kwargs.get('d', [])
+                    for q in kwargs.get('q', [])
+                    for P in kwargs.get('P', [])
+                    for D in kwargs.get('D', [])
+                    for Q in kwargs.get('Q', [])
+                ]
+            else:
+                comb = namedtuple('comb', ['p', 'd', 'q'])
+                param_combinations = [
+                    comb(p, d, q)
+                    for p in kwargs.get('p', [])
+                    for d in kwargs.get('d', [])
+                    for q in kwargs.get('q', [])
+                ]
+            param_combinations = [(comb, k) for comb in param_combinations for k in range(n_folds)]
+
+            data = kwargs['data']
+            tt_data = list()
+            initial_train_size = len(data) - n_folds * pred_len
+            for fold in range(n_folds):
+                train_end = initial_train_size + fold * pred_len
+                test_end = train_end + pred_len
+                train_data = data[:train_end]
+                test_data = data[train_end:test_end]
+                tt_data.append((list(train_data), list(test_data)))
+
+
+            misc_args = {k: v for k, v in kwargs.items() if k not in required and k not in seasonal_params}
+            if 's' in kwargs:
+                misc_args['s'] = kwargs['s']
+
+            results = Parallel(n_jobs=-1)(
+                delayed(func)(
+                    data=tt_data[k], **comb._asdict(), **misc_args
+                ) for (comb, k) in param_combinations
+            )
+
+            results = [{'ARIMA':comb, 'k':k, 'Error':res} for (comb, k), res in zip(param_combinations, results)]
+            df = pd.DataFrame(results)
+            df = df.groupby('ARIMA').mean()
+            df = df.drop(columns=['k'])
+            df = df.sort_values('Error')
+
+            return df
+        return wrapper
+    return decorator
