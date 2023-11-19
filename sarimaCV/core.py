@@ -2,6 +2,7 @@ import os
 from collections import namedtuple
 from functools import wraps
 from joblib import Parallel, delayed
+from tqdm import tqdm
 from .utils import *
 
 
@@ -111,7 +112,7 @@ def parallelize(n_folds, pred_len):
             results = Parallel(n_jobs=-1)(
                 delayed(func)(
                     data=tt_data[k], **comb._asdict(), **misc_args
-                ) for (comb, k) in param_combinations
+                ) for (comb, k) in tqdm(param_combinations)
             )
 
             results = [{'ARIMA':comb, 'k':k, 'Error':res} for (comb, k), res in zip(param_combinations, results)]
