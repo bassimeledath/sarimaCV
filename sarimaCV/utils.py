@@ -62,7 +62,7 @@ def format_results_to_table(results_dict, s):
     '''Format results to a pandas DataFrame with a specific string format for orders'''
     formatted_rows = []
     for (p, d, q, P, D, Q), rmse in results_dict.items():
-        order_str = f"ARIMA[({p}, {d}, {q}), ({P}, {D}, {Q}, {s})]"
+        order_str = f"SARIMA[({p}, {d}, {q}), ({P}, {D}, {Q}, {s})]"
         formatted_rows.append([order_str, rmse])
     df = pd.DataFrame(formatted_rows, columns=['Order', 'RMSE'])
     df = df.sort_values(by='RMSE', ascending=True)
